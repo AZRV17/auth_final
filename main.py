@@ -19,6 +19,7 @@ def main():
         9. Статистика
         10. Показать всех пользователей
         11. Логины содержащие фамилию
+        12. Экспортировать таблицу в csv
         0. Выйти
         """)
 
@@ -36,6 +37,7 @@ def main():
             case '9': show_stats(df)
             case '10': print(df)
             case '11': logins_with_surname(df)
+            case '12': export_csv(df)
             case '0':
                 print("Программа завершена.")
                 break

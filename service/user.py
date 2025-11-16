@@ -131,3 +131,10 @@ def show_stats(df):
     print(df['Роль'].value_counts())
     print("Повторяющиеся имена:")
     print(df['Имя'].value_counts()[df['Имя'].value_counts() > 1])
+    
+def export_csv(df):
+    try:
+        df.to_csv('export/users.csv', index=False, encoding='utf-8')
+        print("База данный успешно сохранена в export/users.csv")
+    except Exception as e:
+        print(f"Ошибка при сохранении: {e}")
