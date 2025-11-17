@@ -33,11 +33,11 @@ def register(df):
 
     while True:
         password = input("Введите новый пароль (a для генерации пароля): ").strip()
-        if len(password) < 6:
+        if password == "a":
+            password = generate_password()
+        elif len(password) < 6:
             print("Пароль должен содрежать минимум 6 символов")
             continue
-        elif password == "a":
-            password = generate_password()
         break
 
     new_user = {
@@ -59,11 +59,11 @@ def change_password(df):
     if login in df['Логин'].values:
         while True:
             new_pass = input("Введите новый пароль (a для генерации пароля): ").strip()
-            if len(new_pass) < 6:
+            if new_pass == "a":
+                new_pass = generate_password()
+            elif len(new_pass) < 6:
                 print("Пароль должен содрежать минимум 6 символов")
                 continue
-            elif new_pass == "a":
-                new_pass = generate_password()
             break
 
         df.loc[df['Логин'] == login, 'Пароль'] = new_pass
@@ -122,7 +122,7 @@ def logins_with_surname(df):
     for _, row in df.iterrows():
         if str(row['Фамилия']).lower() in str(row['Логин']).lower():
             count += 1
-    print(f"👥 Пользователей, чей логин содержит фамилию: {count}")
+    print(f"Пользователей, чей логин содержит фамилию: {count}")
     return count
 
 def show_stats(df):
