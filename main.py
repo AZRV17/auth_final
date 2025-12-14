@@ -1,5 +1,6 @@
 from repository.user import User
 from service.user import *
+from service.visualization import *
 
 def main():
     users = User()
@@ -22,6 +23,9 @@ def main():
         10. Показать всех пользователей
         11. Логины содержащие фамилию
         12. Экспортировать таблицу в csv
+        13. Диаграмма пользователей по ролям
+        14. График регистраций по датам
+        15. Активные пользователи по роли
         0. Выйти
         """)
 
@@ -40,6 +44,9 @@ def main():
             case '10': print(df)
             case '11': logins_with_surname(df)
             case '12': export_csv(df)
+            case '13': users_by_role(df)
+            case '14': registrations_by_date(df)
+            case '15': active_users_by_role()
             case '0':
                 print("Программа завершена.")
                 break
