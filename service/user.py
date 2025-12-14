@@ -1,22 +1,36 @@
+from utils.logger import log_action
 from utils.password_generator import generate_password
+from collections import defaultdict
+import re
+
 import pandas as pd
+
+LOG_FILE = "app.log"
 
 def login(df):
     login = input("Введите логин: ")
     password = input("Введите пароль: ")
-    match = df[(df['Логин'] == login) & (df['Пароль'] == password)]
-    if not match.empty:
+    user = df[(df['Логин'] == login) & (df['Пароль'] == password)]
+    if not user.empty:
         df.loc[df['Логин'] == login, 'Активен'] = True
+        role = user.iloc[0]['Роль']
+        log_action(f"Успешный вход пользователя: {login}")
+        log_action(f"LOGIN {login} role={role}")
         print(f"Вход выполнен: {login}")
     else:
+        log_action(f"Неудачный вход пользователя: {login}")
         print("Неверный логин или пароль.")
     return df
 
 def logout(df):
     login = input("Введите логин для выхода: ")
-    if login in df['Логин'].values:
+    user = df[df['Логин'] == login]
+    if not user.empty:
+        role = user.iloc[0]['Роль']
         df.loc[df['Логин'] == login, 'Активен'] = False
         print(f"Пользователь {login} вышел из системы.")
+        log_action(f"Выход из системы: {login}")
+        log_action(f"LOGOUT {login} role={role}")
     else:
         print("Логин не найден.")
     return df
@@ -52,6 +66,7 @@ def register(df):
     }
     df = pd.concat([df, pd.DataFrame([new_user])], ignore_index=True)
     print(f"Регистрация успешна! Ваш пароль: {password}")
+    log_action(f"Успешная регистрация: {login}")
     return df
 
 def change_password(df):
@@ -68,6 +83,7 @@ def change_password(df):
 
         df.loc[df['Логин'] == login, 'Пароль'] = new_pass
         print(f"Новый пароль: {new_pass}")
+        log_action(f"Успешная смена пароля: {login}")
     else:
         print("Пользователь не найден.")
     return df
@@ -87,6 +103,7 @@ def edit_user(df):
     if role: df.loc[df['Логин'] == login, 'Роль'] = role
 
     print("Данные обновлены.")
+    log_action(f"Изменение данных пользователя: {login}")
     return df
 
 def search(df):
@@ -113,6 +130,7 @@ def mass_status(df):
     if new_status.lower() in ['true', 'false']:
         df['Активен'] = (new_status.lower() == 'true')
         print("Статусы изменены.")
+        log_action(f"Успешное изменение статусов")
     else:
         print("Некорректный ввод.")
     return df
@@ -136,5 +154,36 @@ def export_csv(df):
     try:
         df.to_csv('export/users.csv', index=False, encoding='utf-8')
         print("База данный успешно сохранена в export/users.csv")
+        log_action("База данных сохранена в CSV")
     except Exception as e:
         print(f"Ошибка при сохранении: {e}")
+
+def get_active_users_by_role_from_logs(role_input):
+    daily_counts = {}
+
+    try:
+        with open("app.log", encoding="utf-8") as f:
+            for line in f:
+                if "LOGIN" in line or "LOGOUT" in line:
+                    parts = line.split()
+
+                    date = parts[0]
+                    action = parts[5]
+                    role = parts[7].split("=")[1]
+
+                    if role != role_input:
+                        continue
+
+                    if date not in daily_counts:
+                        daily_counts[date] = 0
+
+                    if action == "LOGIN":
+                        daily_counts[date] += 1
+                    elif action == "LOGOUT":
+                        daily_counts[date] -= 1
+
+    except FileNotFoundError:
+        print("Лог-файл не найден.")
+        return {}
+
+    return daily_counts
