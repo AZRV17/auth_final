@@ -1,3 +1,4 @@
+from service.email import send_email
 from utils.logger import log_action
 from utils.password_generator import generate_password
 from collections import defaultdict
@@ -41,18 +42,37 @@ def register(df):
         print("Такой логин уже существует.")
         return df
 
+    email = input("Введите email: ").strip()
+    if email in df['Email'].values:
+        print("Такой email уже используется.")
+        return df
+
     name = input("Введите имя: ")
     surname = input("Введите фамилию: ")
     role = input("Введите роль (по умолчанию Клиент): ") or "Клиент"
 
     while True:
-        password = input("Введите новый пароль (a для генерации пароля): ").strip()
+        password = input("Введите пароль (a для генерации пароля): ").strip()
         if password == "a":
             password = generate_password()
         elif len(password) < 6:
             print("Пароль должен содрежать минимум 6 символов")
             continue
         break
+
+    try:
+        code = send_email(email)
+        print("Код отправлен на почту.")
+    except:
+        print("Регистрация прервана из-за ошибки отправки email.")
+        log_action(f"EMAIL_ERROR email={email}")
+        return df
+
+    confirm = input("Введите код, полученный по почте: ")
+    if confirm != code:
+        print("Неверный код. Регистрация отменена.")
+        log_action(f"Неудачная регистрация email={email}")
+        return df
 
     new_user = {
         'ID': df['ID'].max() + 1,

@@ -13,6 +13,7 @@ class User:
             'Имя': np.random.choice(['Иван', 'Александр', 'Петр', 'Дмитрий', 'Даниил'], 20),
             'Фамилия': np.random.choice(['Иванов', 'Александров', 'Петров', 'Дмитриев', "Данилов"], 20),
             'Логин': [f'user{i}' for i in range(1, 21)],
+            'Email': [f"newuser{i}@mail.com" for i in range(1, 21)],
             'Пароль': [generate_password() for _ in range(20)],
             'Дата регистрации': [datetime.now().strftime('%Y-%m-%d')] * 20,
             'Роль': np.random.choice(ROLES, 20),
