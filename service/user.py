@@ -266,26 +266,40 @@ def logins_with_surname():
     cur = conn.cursor()
 
     cur.execute("""
-                SELECT COUNT(*)
+                SELECT login, last_name
                 FROM users
                 WHERE lower(login) LIKE '%' || lower(last_name) || '%'
                 """)
 
-    count = cur.fetchone()[0]
+    rows = cur.fetchall()
     conn.close()
 
+    count = len(rows)
+
     print(f"Пользователей, чей логин содержит фамилию: {count}")
-    return count
+
+    if count > 0:
+        for login, last_name in rows:
+            print(f"Логин: {login}, Фамилия: {last_name}")
 
 def show_stats():
     conn = get_connection()
     df = pd.read_sql_query("SELECT * FROM users", conn)
     conn.close()
+
     print(f"Активных пользователей: {df['is_active'].sum()}")
     print("Пользователи по ролям:")
-    print(df['role'].value_counts())
+    for role, count in df['role'].value_counts().items():
+        print(f"  {role}: {count}")
     print("Повторяющиеся имена:")
-    print(df['first_name'].value_counts()[df['first_name'].value_counts() > 1])
+    repeated = df['first_name'].value_counts()
+    repeated = repeated[repeated > 1]
+
+    if repeated.empty:
+        print("  Нет повторяющихся имен")
+    else:
+        for name, count in repeated.items():
+            print(f"  {name}: {count}")
     
 def export_csv():
     try:
