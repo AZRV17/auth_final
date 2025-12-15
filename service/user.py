@@ -1,55 +1,86 @@
+from datetime import datetime
+
+from repository.user import get_connection
 from service.email import send_email
 from utils.logger import log_action
 from utils.password_generator import generate_password
-from collections import defaultdict
-import re
 
 import pandas as pd
 
 LOG_FILE = "app.log"
+ROLES = ['Администратор', 'Клиент', 'Менеджер', 'Оператор']
 
-def login(df):
+def login():
     login = input("Введите логин: ")
     password = input("Введите пароль: ")
-    user = df[(df['Логин'] == login) & (df['Пароль'] == password)]
-    if not user.empty:
-        df.loc[df['Логин'] == login, 'Активен'] = True
-        role = user.iloc[0]['Роль']
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    role = cur.execute("""
+                SELECT role
+                FROM users
+                WHERE login = ?
+                  AND password = ?
+                """, (login, password)).fetchone()
+
+    if role:
+        cur.execute("""
+                    UPDATE users
+                    SET is_active=1
+                    WHERE login = ?
+                    """, (login,))
+        conn.commit()
+
         log_action(f"Успешный вход пользователя: {login}")
-        log_action(f"LOGIN {login} role={role}")
+        log_action(f"LOGIN {login} role={role[0]}")
         print(f"Вход выполнен: {login}")
     else:
         log_action(f"Неудачный вход пользователя: {login}")
         print("Неверный логин или пароль.")
-    return df
+    conn.close()
 
-def logout(df):
+def logout():
     login = input("Введите логин для выхода: ")
-    user = df[df['Логин'] == login]
-    if not user.empty:
-        role = user.iloc[0]['Роль']
-        df.loc[df['Логин'] == login, 'Активен'] = False
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    role = cur.execute("SELECT role FROM users WHERE login=?", (login,)).fetchone()
+    if role:
+        cur.execute("""
+                    UPDATE users
+                    SET is_active=0
+                    WHERE login = ?
+                    """, login)
+        conn.commit()
         print(f"Пользователь {login} вышел из системы.")
         log_action(f"Выход из системы: {login}")
-        log_action(f"LOGOUT {login} role={role}")
+        log_action(f"LOGOUT {login} role={role[0]}")
     else:
         print("Логин не найден.")
-    return df
+    conn.close()
 
-def register(df):
+def register():
+    conn = get_connection()
+    cur = conn.cursor()
+
     login = input("Введите логин: ")
-    if login in df['Логин'].values:
-        print("Такой логин уже существует.")
-        return df
-
     email = input("Введите email: ").strip()
-    if email in df['Email'].values:
-        print("Такой email уже используется.")
-        return df
+
+    cur.execute("SELECT 1 FROM users WHERE login=? OR email=?", (login, email))
+    if cur.fetchone():
+        print("Логин или email уже существует")
+        conn.close()
+        return
 
     name = input("Введите имя: ")
     surname = input("Введите фамилию: ")
     role = input("Введите роль (по умолчанию Клиент): ") or "Клиент"
+    if role not in ROLES:
+        print("Неверная роль (Администратор, Клиент, Менеджер, Оператор)")
+        conn.close()
+        return
 
     while True:
         password = input("Введите пароль (a для генерации пароля): ").strip()
@@ -62,36 +93,42 @@ def register(df):
 
     try:
         code = send_email(email)
-        print("Код отправлен на почту.")
+        print("Код отправлен на почту")
     except:
-        print("Регистрация прервана из-за ошибки отправки email.")
+        print("Регистрация прервана из-за ошибки отправки email")
         log_action(f"EMAIL_ERROR email={email}")
-        return df
+        conn.close()
+        return
 
     confirm = input("Введите код, полученный по почте: ")
     if confirm != code:
-        print("Неверный код. Регистрация отменена.")
+        print("Неверный код. Регистрация отменена")
         log_action(f"Неудачная регистрация email={email}")
-        return df
+        conn.close()
+        return
 
-    new_user = {
-        'ID': df['ID'].max() + 1,
-        'Имя': name,
-        'Фамилия': surname,
-        'Логин': login,
-        'Пароль': password,
-        'Дата регистрации': pd.Timestamp.now().strftime("%Y-%m-%d"),
-        'Роль': role,
-        'Активен': False
-    }
-    df = pd.concat([df, pd.DataFrame([new_user])], ignore_index=True)
+    cur.execute("""
+                INSERT INTO users
+                (first_name, last_name, login, email, password, registered_at, role, is_active)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                """, (
+                    name, surname, login, email,
+                    password, datetime.now().strftime("%Y-%m-%d"), role
+                ))
+
+    conn.commit()
+    conn.close()
     print(f"Регистрация успешна! Ваш пароль: {password}")
     log_action(f"Успешная регистрация: {login}")
-    return df
 
-def change_password(df):
+def change_password():
     login = input("Введите логин: ")
-    if login in df['Логин'].values:
+    conn = get_connection()
+    cur = conn.cursor()
+
+    user_id = cur.execute("SELECT id FROM users WHERE login=?", (login,)).fetchone()
+
+    if user_id:
         while True:
             new_pass = input("Введите новый пароль (a для генерации пароля): ").strip()
             if new_pass == "a":
@@ -101,77 +138,152 @@ def change_password(df):
                 continue
             break
 
-        df.loc[df['Логин'] == login, 'Пароль'] = new_pass
+        cur.execute("""
+                    UPDATE users
+                    SET password=?
+                    WHERE login = ?
+                    """, (new_pass, login))
+
+        conn.commit()
+        conn.close()
         print(f"Новый пароль: {new_pass}")
         log_action(f"Успешная смена пароля: {login}")
     else:
         print("Пользователь не найден.")
-    return df
 
-def edit_user(df):
+def edit_user():
     login = input("Введите логин пользователя: ")
-    if login not in df['Логин'].values:
-        print("Нет такого пользователя.")
-        return df
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("SELECT id FROM users WHERE login=?", (login,))
+    if not cur.fetchone():
+        print("Пользователь не найден")
+        conn.close()
+        return
 
     name = input("Новое имя (Enter — пропустить): ")
     surname = input("Новая фамилия (Enter — пропустить): ")
     role = input("Новая роль (Enter — пропустить): ")
 
-    if name: df.loc[df['Логин'] == login, 'Имя'] = name
-    if surname: df.loc[df['Логин'] == login, 'Фамилия'] = surname
-    if role: df.loc[df['Логин'] == login, 'Роль'] = role
+    if name:
+        cur.execute("UPDATE users SET first_name=? WHERE login=?", (name, login))
+    if surname:
+        cur.execute("UPDATE users SET last_name=? WHERE login=?", (surname, login))
+    if role:
+        cur.execute("UPDATE users SET role=? WHERE login=?", (role, login))
 
-    print("Данные обновлены.")
+    conn.commit()
+    conn.close()
+
+    print("Данные обновлены")
     log_action(f"Изменение данных пользователя: {login}")
-    return df
 
-def search(df):
-    term = input("Введите имя, роль или статус (True/False): ")
-    res = df[df.astype(str).apply(lambda x: x.str.contains(term, case=False, na=False)).any(axis=1)]
-    print(res if not res.empty else "Ничего не найдено.")
-    return df
+def search():
+    term = input("Введите имя, роль или статус (True/False): ").lower()
 
-def filter_users(df):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT * FROM users
+        WHERE lower(first_name) LIKE ?
+           OR lower(last_name) LIKE ?
+           OR lower(role) LIKE ?
+           OR CAST(is_active AS TEXT) LIKE ?
+    """, (f"%{term}%", f"%{term}%", f"%{term}%", f"%{term}%"))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        print("Ничего не найдено")
+    else:
+        for r in rows:
+            print(r)
+
+def filter_users():
     role = input("Введите роль (Enter — пропустить): ")
     status = input("Введите статус (True/False или Enter): ")
 
-    filtered = df.copy()
+    query = "SELECT * FROM users WHERE 1=1"
+    params = []
+
     if role:
-        filtered = filtered[filtered['Роль'].str.lower() == role.lower()]
-    if status:
-        filtered = filtered[filtered['Активен'] == (status.lower() == 'true')]
+        query += " AND role=?"
+        params.append(role)
 
-    print(filtered if not filtered.empty else "Совпадений нет.")
-    return df
+    if status.lower() in ["true", "false"]:
+        query += " AND is_active=?"
+        params.append(1 if status.lower() == "true" else 0)
 
-def mass_status(df):
-    new_status = input("Введите новый статус для всех (True/False): ")
-    if new_status.lower() in ['true', 'false']:
-        df['Активен'] = (new_status.lower() == 'true')
-        print("Статусы изменены.")
-        log_action(f"Успешное изменение статусов")
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute(query, params)
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        print("Совпадений нет")
     else:
-        print("Некорректный ввод.")
-    return df
+        for r in rows:
+            print(r)
 
-def logins_with_surname(df):
-    count = 0
-    for _, row in df.iterrows():
-        if str(row['Фамилия']).lower() in str(row['Логин']).lower():
-            count += 1
+def mass_status():
+    new_status = input("Введите новый статус для всех (True/False): ").lower()
+
+    if new_status not in ["true", "false"]:
+        print("Некорректный ввод")
+        return
+
+    if new_status == "true":
+        status_value = 1
+    else:
+        status_value = 0
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("UPDATE users SET is_active=?", (status_value,))
+    conn.commit()
+    conn.close()
+
+    log_action(f"Успешное изменение статусов")
+    print("Статусы всех пользователей изменены")
+
+def logins_with_surname():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+                SELECT COUNT(*)
+                FROM users
+                WHERE lower(login) LIKE '%' || lower(last_name) || '%'
+                """)
+
+    count = cur.fetchone()[0]
+    conn.close()
+
     print(f"Пользователей, чей логин содержит фамилию: {count}")
     return count
 
-def show_stats(df):
-    print(f"Активных пользователей: {df['Активен'].sum()}")
+def show_stats():
+    conn = get_connection()
+    df = pd.read_sql_query("SELECT * FROM users", conn)
+    conn.close()
+    print(f"Активных пользователей: {df['is_active'].sum()}")
     print("Пользователи по ролям:")
-    print(df['Роль'].value_counts())
+    print(df['role'].value_counts())
     print("Повторяющиеся имена:")
-    print(df['Имя'].value_counts()[df['Имя'].value_counts() > 1])
+    print(df['first_name'].value_counts()[df['first_name'].value_counts() > 1])
     
-def export_csv(df):
+def export_csv():
     try:
+        conn = get_connection()
+        df = pd.read_sql_query("SELECT * FROM users", conn)
+        conn.close()
         df.to_csv('export/users.csv', index=False, encoding='utf-8')
         print("База данный успешно сохранена в export/users.csv")
         log_action("База данных сохранена в CSV")
@@ -207,3 +319,9 @@ def get_active_users_by_role_from_logs(role_input):
         return {}
 
     return daily_counts
+
+def print_all_users():
+    conn = get_connection()
+    df = pd.read_sql_query("SELECT * FROM users", conn)
+    print(df)
+    conn.close()
