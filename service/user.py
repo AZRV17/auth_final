@@ -7,6 +7,8 @@ from utils.password_generator import generate_password
 
 import pandas as pd
 
+from utils.password_hash import hash_password, verify_password
+
 LOG_FILE = "app.log"
 ROLES = ['Администратор', 'Клиент', 'Менеджер', 'Оператор']
 
@@ -17,12 +19,14 @@ def login():
     conn = get_connection()
     cur = conn.cursor()
 
-    role = cur.execute("""
-                SELECT role
+    password_hash, role = cur.execute("""
+                SELECT password, role
                 FROM users
                 WHERE login = ?
-                  AND password = ?
-                """, (login, password)).fetchone()
+                """, (login,)).fetchone()
+
+    if not verify_password(password, password_hash):
+        print("Неправильный логин или пароль")
 
     if role:
         cur.execute("""
@@ -91,6 +95,8 @@ def register():
             continue
         break
 
+    password_hash = hash_password(password)
+
     try:
         code = send_email(email)
         print("Код отправлен на почту")
@@ -113,7 +119,7 @@ def register():
                 VALUES (?, ?, ?, ?, ?, ?, ?, 0)
                 """, (
                     name, surname, login, email,
-                    password, datetime.now().strftime("%Y-%m-%d"), role
+                    password_hash, datetime.now().strftime("%Y-%m-%d"), role
                 ))
 
     conn.commit()
@@ -138,11 +144,13 @@ def change_password():
                 continue
             break
 
+        password_hash = hash_password(new_pass)
+
         cur.execute("""
                     UPDATE users
                     SET password=?
                     WHERE login = ?
-                    """, (new_pass, login))
+                    """, (password_hash, login))
 
         conn.commit()
         conn.close()
