@@ -4,7 +4,7 @@ from service.visualization import *
 
 def main():
     users = User()
-    df = users.get_all_users()
+    # conn = users.ge
 
     while True:
         print("""
@@ -32,20 +32,20 @@ def main():
         choice = input("Выберите действие: ").strip()
 
         match choice:
-            case '1': df = login(df)
-            case '2': df = logout(df)
-            case '3': df = register(df)
-            case '4': df = change_password(df)
-            case '5': df = edit_user(df)
-            case '6': df = search(df)
-            case '7': df = filter_users(df)
-            case '8': df = mass_status(df)
-            case '9': show_stats(df)
-            case '10': print(df)
-            case '11': logins_with_surname(df)
-            case '12': export_csv(df)
-            case '13': users_by_role(df)
-            case '14': registrations_by_date(df)
+            case '1': login()
+            case '2': logout()
+            case '3': register()
+            case '4': change_password()
+            case '5': edit_user()
+            case '6': search()
+            case '7': filter_users()
+            case '8': mass_status()
+            case '9': show_stats()
+            case '10': print_all_users()
+            case '11': logins_with_surname()
+            case '12': export_csv()
+            case '13': users_by_role()
+            case '14': registrations_by_date()
             case '15': active_users_by_role()
             case '0':
                 print("Программа завершена.")

@@ -1,8 +1,9 @@
-from collections import Counter
-
 import matplotlib.pyplot as plt
 import os
 
+import pandas as pd
+
+from repository.user import get_connection
 from service.user import get_active_users_by_role_from_logs
 from utils.logger import log_action
 
@@ -17,7 +18,11 @@ def show(fig, filename):
     plt.show()
 
 
-def users_by_role(df):
+def users_by_role():
+    conn = get_connection()
+    df = pd.read_sql_query("SELECT * FROM users", conn)
+    conn.close()
+
     role_counts = df['Роль'].value_counts()
 
     fig = plt.figure()
@@ -28,7 +33,11 @@ def users_by_role(df):
 
     show(fig, "users_by_role.png")
 
-def registrations_by_date(df):
+def registrations_by_date():
+    conn = get_connection()
+    df = pd.read_sql_query("SELECT * FROM users", conn)
+    conn.close()
+
     df['Дата регистрации'] = df['Дата регистрации'].astype(str)
     date_counts = df['Дата регистрации'].value_counts().sort_index()
 
