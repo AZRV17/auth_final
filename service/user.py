@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 
 from repository.user import get_connection
@@ -75,7 +76,15 @@ def register():
 
     try:
         login = input("Введите логин: ")
+        if not is_valid(login):
+            conn.close()
+            return
+
         email = input("Введите email: ").strip()
+        if not re.fullmatch(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,7}", email):
+            print("Некорректный email")
+            conn.close()
+            return
 
         cur.execute("SELECT 1 FROM users WHERE login=? OR email=?", (login, email))
         if cur.fetchone():
@@ -84,7 +93,13 @@ def register():
             return
 
         name = input("Введите имя: ")
+        if not is_valid(login):
+            conn.close()
+            return
         surname = input("Введите фамилию: ")
+        if not is_valid(login):
+            conn.close()
+            return
         role = input("Введите роль (по умолчанию Клиент): ") or "Клиент"
         if role not in ROLES:
             print("Неверная роль (Администратор, Клиент, Менеджер, Оператор)")
@@ -95,10 +110,14 @@ def register():
             password = input("Введите пароль (a для генерации пароля): ").strip()
             if password == "a":
                 password = generate_password()
-            elif len(password) < 6:
+            elif len(password) < 6 or len(password):
                 print("Пароль должен содрежать минимум 6 символов")
                 continue
             break
+
+        if not is_valid(password):
+            conn.close()
+            return
 
         password_hash = hash_password(password)
 
@@ -154,6 +173,9 @@ def change_password():
                     continue
                 break
 
+            if not is_valid(new_pass):
+                conn.close()
+                return
             password_hash = hash_password(new_pass)
 
             cur.execute("""
@@ -189,12 +211,15 @@ def edit_user():
         surname = input("Новая фамилия (Enter — пропустить): ")
         role = input("Новая роль (Enter — пропустить): ")
 
-        if name:
+        if name and is_valid(name):
             cur.execute("UPDATE users SET first_name=? WHERE login=?", (name, login))
-        if surname:
+        if surname and is_valid(surname):
             cur.execute("UPDATE users SET last_name=? WHERE login=?", (surname, login))
         if role:
-            cur.execute("UPDATE users SET role=? WHERE login=?", (role, login))
+            if not role in ROLES:
+                print("Некорректная роль")
+            else:
+                cur.execute("UPDATE users SET role=? WHERE login=?", (role, login))
 
         conn.commit()
 
@@ -391,3 +416,19 @@ def print_all_users():
     except:
         print("Ошибка при выводе пользователей")
     conn.close()
+
+def is_valid(string):
+    symbols = {' ', '_', '-', '.', '@'}
+
+    if len(string) > 50:
+        print("Строка может максимум содержать 50 символов")
+        return False
+
+    for ch in string:
+        if ch.isalpha() or ch.isdigit():
+            continue
+        if ch in symbols:
+            continue
+        print("Некорректный символ при вводе")
+        return False
+    return True

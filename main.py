@@ -3,13 +3,12 @@ from service.user import *
 from service.visualization import *
 
 def main():
-    users = User()
-    # conn = users.ge
+    _ = User()
 
     while True:
         print("""
         ---------------------------------
-                      МЕНЮ
+        |             МЕНЮ              |
         ---------------------------------
         1. Вход
         2. Выход
