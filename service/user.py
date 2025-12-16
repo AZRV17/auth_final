@@ -59,13 +59,13 @@ def logout():
                         UPDATE users
                         SET is_active=0
                         WHERE login = ?
-                        """, login)
+                        """, (login,2))
             conn.commit()
             print(f"Пользователь {login} вышел из системы.")
             log_action(f"Выход из системы: {login}")
             log_action(f"LOGOUT {login} role={role[0]}")
         else:
-            print("Логин не найден.")
+            print("Логин не найден")
     except:
         print("Некорректный ввод")
     conn.close()
@@ -110,7 +110,7 @@ def register():
             password = input("Введите пароль (a для генерации пароля): ").strip()
             if password == "a":
                 password = generate_password()
-            elif len(password) < 6 or len(password):
+            elif len(password) < 6:
                 print("Пароль должен содрежать минимум 6 символов")
                 continue
             break
