@@ -27,7 +27,7 @@ def users_by_role():
         df = pd.read_sql_query("SELECT * FROM users", conn)
         conn.close()
 
-        role_counts = df['Роль'].value_counts()
+        role_counts = df['role'].value_counts()
 
         fig = plt.figure()
         role_counts.plot(kind='bar')
@@ -45,8 +45,8 @@ def registrations_by_date():
         df = pd.read_sql_query("SELECT * FROM users", conn)
         conn.close()
 
-        df['Дата регистрации'] = df['Дата регистрации'].astype(str)
-        date_counts = df['Дата регистрации'].value_counts().sort_index()
+        df['registered_at'] = df['registered_at'].astype(str)
+        date_counts = df['registered_at'].value_counts().sort_index()
 
         fig = plt.figure()
         date_counts.plot(kind='line', marker='o')
